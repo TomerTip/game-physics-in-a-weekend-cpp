@@ -93,6 +93,8 @@ void Application::Initialize() {
 
 	m_isPaused = true;
 	m_stepFrame = false;
+
+	m_isQuit = false;
 }
 
 /*
@@ -437,6 +439,11 @@ void Application::Keyboard( int key, int scancode, int action, int modifiers ) {
 	if ( GLFW_KEY_Y == key && ( GLFW_PRESS == action || GLFW_REPEAT == action ) ) {
 		m_stepFrame = m_isPaused && !m_stepFrame;
 	}
+
+	// Ad Hoc: Quit
+	if (GLFW_KEY_Q == key && (GLFW_PRESS == action || GLFW_REPEAT == action)) {
+		m_isQuit = !m_isQuit;
+	}
 }
 
 /*
@@ -507,6 +514,11 @@ void Application::MainLoop() {
 
 		// Draw the Scene
 		DrawFrame();
+		
+		// Ad Hoc: Quit Window
+		if (m_isQuit) {
+			exit(0);
+		}
 	}
 }
 
