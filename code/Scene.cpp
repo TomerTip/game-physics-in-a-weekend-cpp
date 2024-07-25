@@ -74,20 +74,20 @@ void Scene::Update( const float dt_sec ) {
 		// Except Ground
 		if (i != 0)
 		{
-			// Gravitational Acceleration
-			// dv = a * dt
-			// g = 10 m/s
-			float gravity = -10.0f;
-			m_bodies[i].m_linearVelocity += Vec3(0, 0, gravity) * dt_sec;
-		}
-	}
+			Body* body = &m_bodies[i];
 
-	for (size_t i = 0; i < m_bodies.size(); i++)
-	{
-		// Except Ground
-		if (i != 0)
-		{
-			// Position
+			// Gravity as an impulse
+			// J = dp
+			// F = dp/dt => dp = F * dt => J = F * dt
+			// F = mg * dt = > J = mg * dt ^ 2
+
+			// g = 9.8 m/s
+			float gravity = -9.8f;
+
+			float mass = 1.0f / body->m_invMass;
+			Vec3 impulseGravity = Vec3(0, 0, gravity) * mass * dt_sec;
+			body->ApplyImpulseLinear(impulseGravity);
+			
 			// dx = v * dt
 			m_bodies[i].m_position += m_bodies[i].m_linearVelocity * dt_sec;
 		}
