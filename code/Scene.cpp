@@ -63,6 +63,19 @@ void Scene::Initialize() {
 	// TODO: Add code
 }
 
+bool Scene::Intersect(const Body* a, const Body* b) {
+	const Vec3 ab = b->m_position - a->m_position;
+	const ShapeSphere* sphere_a = (const ShapeSphere*)a->m_shape;
+	const ShapeSphere* sphere_b = (const ShapeSphere*)b->m_shape;
+
+	const float radius_ab = sphere_a->m_radius + sphere_b->m_radius;
+	const float length_sqr = ab.GetLengthSqr();
+	
+	// a,b -  radii, d - length of distance
+	// if a + b > d, intersect.
+	return (pow(radius_ab, 2) < length_sqr) ? false : true;
+}
+
 /*
 ====================================================
 Scene::Update
@@ -71,23 +84,49 @@ Scene::Update
 void Scene::Update( const float dt_sec ) {
 	for (size_t i = 0; i < m_bodies.size(); i++)
 	{
-		// Except Ground
-		if (i != 0)
+		Body* body = &m_bodies[i];
+
+		// Gravity as an impulse
+		// J = dp
+		// F = dp/dt => dp = F * dt => J = F * dt
+		// F = mg * dt = > J = mg * dt ^ 2
+
+		// g = 9.8 m/s
+		float gravity = -9.8f;
+
+		float mass = 1.0f / body->m_invMass;
+		Vec3 impulseGravity = Vec3(0, 0, gravity) * mass * dt_sec;
+		body->ApplyImpulseLinear(impulseGravity);
+	}
+
+	// Collision Check
+	for (size_t i = 0; i < m_bodies.size(); i++)
+	{
+		for (size_t j = i + 1; j < m_bodies.size(); j++)
 		{
-			Body* body = &m_bodies[i];
+			Body* a = &m_bodies[i];
+			Body* b = &m_bodies[j];
 
-			// Gravity as an impulse
-			// J = dp
-			// F = dp/dt => dp = F * dt => J = F * dt
-			// F = mg * dt = > J = mg * dt ^ 2
+			// Skip bodies with infinite mass
+			if (a->m_invMass == 0.0f && b->m_invMass == 0.0f)
+			{
+				continue;
+			}
 
-			// g = 9.8 m/s
-			float gravity = -9.8f;
+			if (Intersect(a, b))
+			{
+				std::cout << "intersect" << std::endl;
+				a->m_linearVelocity.Zero();
+				b->m_linearVelocity.Zero();
+			}
+		}
+	}
 
-			float mass = 1.0f / body->m_invMass;
-			Vec3 impulseGravity = Vec3(0, 0, gravity) * mass * dt_sec;
-			body->ApplyImpulseLinear(impulseGravity);
-			
+	for (size_t i = 0; i < m_bodies.size(); i++)
+	{	
+		// Skip ground
+		if (i != 0)		
+		{
 			// dx = v * dt
 			m_bodies[i].m_position += m_bodies[i].m_linearVelocity * dt_sec;
 		}

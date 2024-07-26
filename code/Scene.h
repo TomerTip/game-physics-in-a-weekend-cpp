@@ -3,6 +3,7 @@
 //
 #pragma once
 #include <vector>
+#include <iostream>
 
 #include "Physics/Shapes.h"
 #include "Physics/Body.h"
@@ -26,5 +27,7 @@ public:
 	std::vector< Body > m_bodies;
 	std::vector< Constraint * >	m_constraints;
 	ManifoldCollector m_manifolds;
+
+	bool Intersect(const Body* a, const Body* b);
 };
 
