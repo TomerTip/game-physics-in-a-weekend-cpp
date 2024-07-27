@@ -59,14 +59,43 @@ void Scene::Initialize() {
 	body.m_shape = new ShapeSphere( 2.0f );
 	m_bodies.push_back( body );
 
+	body.m_position = Vec3(2, 3, 5);
+	body.m_orientation = Quat(0, 0, 0, 1);
+	body.m_shape = new ShapeSphere(0.1f);
+	m_bodies.push_back(body);
+
 
 	// TODO: Add code
 }
 
-bool Scene::Intersect(const Body* a, const Body* b) {
+void Scene::ResolveContact(contact_t &contact) {
+	Body* a = contact.bodyA;
+	Body* b = contact.bodyB;
+
+	a->m_linearVelocity.Zero();
+	b->m_linearVelocity.Zero();
+
+	// Moving by new center of mass
+	const float tA = a->m_invMass / (a->m_invMass + b->m_invMass);
+	const float tB = b->m_invMass / (b->m_invMass + a->m_invMass);
+	const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_B_worldspace;
+	a->m_position += distance * tA;
+	b->m_position -= distance * tB;
+}
+
+bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {
+	contact.bodyA = a;
+	contact.bodyB = b;
+
 	const Vec3 ab = b->m_position - a->m_position;
 	const ShapeSphere* sphere_a = (const ShapeSphere*)a->m_shape;
 	const ShapeSphere* sphere_b = (const ShapeSphere*)b->m_shape;
+
+	contact.normal = ab;
+	contact.normal.Normalize();
+
+	contact.ptr_on_A_worldspace = a->m_position + (contact.normal * sphere_a->m_radius);
+	contact.ptr_on_A_worldspace = b->m_position - (contact.normal * sphere_b->m_radius);
 
 	const float radius_ab = sphere_a->m_radius + sphere_b->m_radius;
 	const float length_sqr = ab.GetLengthSqr();
@@ -113,11 +142,10 @@ void Scene::Update( const float dt_sec ) {
 				continue;
 			}
 
-			if (Intersect(a, b))
+			contact_t contact;
+			if (Intersect(a, b, contact))
 			{
-				std::cout << "intersect" << std::endl;
-				a->m_linearVelocity.Zero();
-				b->m_linearVelocity.Zero();
+				ResolveContact(contact);
 			}
 		}
 	}
