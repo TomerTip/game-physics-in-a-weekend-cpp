@@ -52,17 +52,19 @@ void Scene::Initialize() {
 	body.m_position = Vec3( 0, 0, -101 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 100.0f );
+	body.m_invMass = 0; // "Infinite mass"
 	m_bodies.push_back( body );
 
 	body.m_position = Vec3( 0, 0, 10 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 2.0f );
+	body.m_invMass = 1.0f / 2.0f; // mass of 2 kg
 	m_bodies.push_back( body );
 
-	body.m_position = Vec3(2, 3, 5);
-	body.m_orientation = Quat(0, 0, 0, 1);
-	body.m_shape = new ShapeSphere(0.1f);
-	m_bodies.push_back(body);
+	//body.m_position = Vec3(2, 3, 5);
+	//body.m_orientation = Quat(0, 0, 0, 1);s
+	//body.m_shape = new ShapeSphere(0.1f);
+	//m_bodies.push_back(body);
 
 
 	// TODO: Add code
@@ -72,15 +74,24 @@ void Scene::ResolveContact(contact_t &contact) {
 	Body* a = contact.bodyA;
 	Body* b = contact.bodyB;
 
-	a->m_linearVelocity.Zero();
-	b->m_linearVelocity.Zero();
+	const float invMass_a = a->m_invMass;
+	const float invMass_b = b->m_invMass;
+
+	const Vec3& n = contact.normal;	
+	const Vec3 vab = a->m_linearVelocity - b->m_linearVelocity;
+	const float impulse = -2.0f * vab.Dot(n) / (invMass_a + invMass_b);
+	const Vec3 impulse_vector = n * impulse;
+	
+	// J2 = -J1
+	a->ApplyImpulseLinear(impulse_vector * 1.0f);
+	b->ApplyImpulseLinear(impulse_vector * -1.0f);
 
 	// Moving by new center of mass
-	const float tA = a->m_invMass / (a->m_invMass + b->m_invMass);
-	const float tB = b->m_invMass / (b->m_invMass + a->m_invMass);
-	const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_B_worldspace;
-	a->m_position += distance * tA;
-	b->m_position -= distance * tB;
+	const float tA = invMass_a / (invMass_a + invMass_b);
+	const float tB = invMass_b / (invMass_b + invMass_a);
+	const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_A_worldspace;
+	a->m_position -= distance * tA;
+	b->m_position += distance * tB;
 }
 
 bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {
@@ -125,6 +136,11 @@ void Scene::Update( const float dt_sec ) {
 
 		float mass = 1.0f / body->m_invMass;
 		Vec3 impulseGravity = Vec3(0, 0, gravity) * mass * dt_sec;
+
+		// Do not apply gravity to world body itself
+		if (i == 0)
+			continue;
+
 		body->ApplyImpulseLinear(impulseGravity);
 	}
 
@@ -150,13 +166,10 @@ void Scene::Update( const float dt_sec ) {
 		}
 	}
 
+	// Update position
 	for (size_t i = 0; i < m_bodies.size(); i++)
 	{	
-		// Skip ground
-		if (i != 0)		
-		{
-			// dx = v * dt
-			m_bodies[i].m_position += m_bodies[i].m_linearVelocity * dt_sec;
-		}
+		// dx = v * dt
+		m_bodies[i].m_position += m_bodies[i].m_linearVelocity * dt_sec;
 	}
 }
