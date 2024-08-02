@@ -53,18 +53,22 @@ void Scene::Initialize() {
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 100.0f );
 	body.m_invMass = 0; // "Infinite mass"
+	body.m_elasticity = 1.0f;
 	m_bodies.push_back( body );
 
 	body.m_position = Vec3( 0, 0, 10 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 2.0f );
 	body.m_invMass = 1.0f / 2.0f; // mass of 2 kg
+	body.m_elasticity = 1.0f;
 	m_bodies.push_back( body );
-
-	//body.m_position = Vec3(2, 3, 5);
-	//body.m_orientation = Quat(0, 0, 0, 1);s
-	//body.m_shape = new ShapeSphere(0.1f);
-	//m_bodies.push_back(body);
+	
+	body.m_position = Vec3(0, 0, 15);
+	body.m_orientation = Quat(0, 0, 0, 1);
+	body.m_shape = new ShapeSphere(1.0f);
+	body.m_invMass = 1.0f / 0.5f; // mass of 0.5 kg
+	body.m_elasticity = 1.0f;
+	m_bodies.push_back(body);
 
 
 	// TODO: Add code
@@ -74,24 +78,32 @@ void Scene::ResolveContact(contact_t &contact) {
 	Body* a = contact.bodyA;
 	Body* b = contact.bodyB;
 
+	const float elasticity_a = a->m_elasticity;
+	const float elasticity_b = b->m_elasticity;
+	const float elasticity = elasticity_a * elasticity_b;
+
 	const float invMass_a = a->m_invMass;
 	const float invMass_b = b->m_invMass;
 
 	const Vec3& n = contact.normal;	
 	const Vec3 vab = a->m_linearVelocity - b->m_linearVelocity;
-	const float impulse = -2.0f * vab.Dot(n) / (invMass_a + invMass_b);
+	const float impulse = -(1.0f + elasticity) * vab.Dot(n) / (invMass_a + invMass_b);
 	const Vec3 impulse_vector = n * impulse;
+
 	
 	// J2 = -J1
 	a->ApplyImpulseLinear(impulse_vector * 1.0f);
 	b->ApplyImpulseLinear(impulse_vector * -1.0f);
 
 	// Moving by new center of mass
-	const float tA = invMass_a / (invMass_a + invMass_b);
-	const float tB = invMass_b / (invMass_b + invMass_a);
-	const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_A_worldspace;
-	a->m_position -= distance * tA;
-	b->m_position += distance * tB;
+	
+	// TODO: Buggy, understand why
+	
+	//const float tA = invMass_a / (invMass_a + invMass_b);
+	//const float tB = invMass_b / (invMass_b + invMass_a);
+	//const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_A_worldspace;
+	//a->m_position -= distance * tA;
+	//b->m_position += distance * tB;
 }
 
 bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {

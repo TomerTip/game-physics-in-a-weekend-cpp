@@ -24,6 +24,7 @@ public:
 	Quat		m_orientation;
 	Vec3		m_linearVelocity;
 	float		m_invMass;
+	float		m_elasticity;
 	Shape *		m_shape;
 
 	Vec3 GetCenterOfMassWorldSpace() const;
