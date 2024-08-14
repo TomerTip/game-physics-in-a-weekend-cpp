@@ -32,7 +32,10 @@ ShapeSphere::InertiaTensor
 Mat3 ShapeSphere::InertiaTensor() const {
 	Mat3 tensor;
 	
-	// TODO: Add code
+	tensor.Zero();
+	tensor.rows[0][0] = (2.0f / 5.0f) * pow(m_radius, 2);
+	tensor.rows[1][1] = (2.0f / 5.0f) * pow(m_radius, 2);
+	tensor.rows[2][2] = (2.0f / 5.0f) * pow(m_radius, 2);
 
 	return tensor;
 }

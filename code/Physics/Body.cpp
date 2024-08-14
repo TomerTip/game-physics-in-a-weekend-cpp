@@ -54,3 +54,38 @@ void Body::ApplyImpulseLinear(const Vec3& impulse) {
 	m_linearVelocity += impulse * m_invMass;
 }
 
+void Body::ApplyImpulseAngular(const Vec3& impulse) {
+	if (0.0f == m_invMass) {
+		return;
+	}
+
+	// L = Iw = r x p
+	// dL = I * dw = r x dp = r x J
+	// dw = I^-1 * (r x J)
+	m_angularVelocity += GetInverseInertiaTensorWorldSpace() * impulse;
+
+	const float max_angular_velocity = 30.0f; // arbitrary fast enough value
+	if (m_angularVelocity.GetLengthSqr() > pow(max_angular_velocity, 2))
+	{
+		m_angularVelocity.Normalize();
+		m_angularVelocity *= max_angular_velocity;
+	}
+}
+
+
+
+Mat3 Body::GetInverseInertiaTensorBodySpace() const {
+	Mat3 inertia_tensor = m_shape->InertiaTensor();
+	// I^-1 * m^-1 
+	Mat3 inverse_inertia_tensor = m_shape->InertiaTensor().Inverse() *  m_invMass;
+	return inverse_inertia_tensor;
+}
+
+Mat3 Body::GetInverseInertiaTensorWorldSpace() const {
+	Mat3 inertia_tensor = m_shape->InertiaTensor();
+	Mat3 inverse_inertia_tensor = m_shape->InertiaTensor().Inverse() * m_invMass;
+	Mat3 orient = m_orientation.ToMat3();
+	inverse_inertia_tensor = orient * inverse_inertia_tensor * orient.Transpose();
+	return inverse_inertia_tensor;
+}
+
