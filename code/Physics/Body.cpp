@@ -72,6 +72,29 @@ void Body::ApplyImpulseAngular(const Vec3& impulse) {
 	}
 }
 
+void Body::ApplyImpulse(const Vec3& impulse_point, const Vec3& impulse) {
+	/*
+		impulse_point is the position of the impulse in world space.
+		impulse is the direction and the magnitude of the impulse.
+	*/
+	if (0.0f == m_invMass)
+	{
+		return;
+	}
+
+	const Vec3& linear_impulse = impulse;
+	ApplyImpulseLinear(linear_impulse);
+
+	Vec3 body_position = GetCenterOfMassWorldSpace();
+	
+	// r - radius(distance from center of mass to impulse point) 
+	// angular_impulse = r x linear_impulse
+	Vec3 r = impulse_point - body_position;
+	Vec3 angular_impulse = r.Cross(impulse);
+	ApplyImpulseAngular(angular_impulse);
+}
+
+
 
 
 Mat3 Body::GetInverseInertiaTensorBodySpace() const {
@@ -89,3 +112,30 @@ Mat3 Body::GetInverseInertiaTensorWorldSpace() const {
 	return inverse_inertia_tensor;
 }
 
+void Body::Update(const float dt_sec) {
+	// Update Position:
+	// dx = v * dt
+	m_position += m_linearVelocity * dt_sec;
+
+	Vec3 pos_center_of_mass = GetCenterOfMassWorldSpace();
+	Vec3 center_of_mass_to_pos = m_position - pos_center_of_mass;
+
+	Mat3 orientation = m_orientation.ToMat3();
+	Mat3 inertia_tensor = orientation * m_shape->InertiaTensor() * orientation.Transpose();
+
+	// a = I^-1 * (w x I * w)
+	Vec3 alpha = inertia_tensor.Inverse() * (m_angularVelocity.Cross(inertia_tensor * m_angularVelocity));
+
+	// w = a * dt
+	m_angularVelocity += alpha * dt_sec;
+
+	// Update Orientation:
+	// d_theta = w * dt
+	Vec3 delta_angle = m_angularVelocity * dt_sec;
+	Quat dq = Quat(delta_angle, delta_angle.GetMagnitude());
+	m_orientation = dq * m_orientation;
+	m_orientation.Normalize();
+
+	// Update new model position
+	m_position = pos_center_of_mass + dq.RotatePoint(center_of_mass_to_pos);
+}

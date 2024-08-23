@@ -56,7 +56,7 @@ void Scene::Initialize() {
 	body.m_elasticity = 1.0f;
 	m_bodies.push_back( body );
 
-	body.m_position = Vec3( 0, 0, 10 );
+	body.m_position = Vec3( 1, 2, 10 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 2.0f );
 	body.m_invMass = 1.0f / 2.0f; // mass of 2 kg
@@ -181,7 +181,6 @@ void Scene::Update( const float dt_sec ) {
 	// Update position
 	for (size_t i = 0; i < m_bodies.size(); i++)
 	{	
-		// dx = v * dt
-		m_bodies[i].m_position += m_bodies[i].m_linearVelocity * dt_sec;
+		m_bodies[i].Update(dt_sec);
 	}
 }
