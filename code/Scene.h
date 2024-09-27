@@ -32,10 +32,10 @@ public:
 
 
 	typedef struct contact_t {
-		Vec3 ptr_on_A_worldspace;
-		Vec3 ptr_on_B_worldspace;
-		Vec3 ptr_on_A_localspace;
-		Vec3 ptr_on_B_localspace;
+		Vec3 point_on_A_worldspace;
+		Vec3 point_on_B_worldspace;
+		Vec3 point_on_A_localspace;
+		Vec3 point_on_B_localspace;
 
 		Vec3 normal; // In world space coordinates
 		float separation_distance; // Positive value when non-penetrating, Negative value when penetrating

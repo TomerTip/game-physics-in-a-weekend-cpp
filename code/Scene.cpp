@@ -52,22 +52,25 @@ void Scene::Initialize() {
 	body.m_position = Vec3( 0, 0, -101 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
 	body.m_shape = new ShapeSphere( 100.0f );
-	body.m_invMass = 0; // "Infinite mass"
+	body.m_invMass = 0; // "Infinite mass" - causes gravity to not have any effect.
 	body.m_elasticity = 1.0f;
 	m_bodies.push_back( body );
 
-	body.m_position = Vec3( 1, 2, 10 );
+	body.m_position = Vec3( 3, 3, 15 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
-	body.m_shape = new ShapeSphere( 2.0f );
+	body.m_shape = new ShapeSphere( 10.0f );
 	body.m_invMass = 1.0f / 2.0f; // mass of 2 kg
 	body.m_elasticity = 1.0f;
 	m_bodies.push_back( body );
 	
-	body.m_position = Vec3(0, 0, 15);
+	body.m_position = Vec3(3, 5, 30);
 	body.m_orientation = Quat(0, 0, 0, 1);
 	body.m_shape = new ShapeSphere(1.0f);
-	body.m_invMass = 1.0f / 0.5f; // mass of 0.5 kg
+	//body.m_invMass = 1.0f / 0.5f; // mass of 0.5 kg
+	body.m_invMass = 1 / 100.0f;
 	body.m_elasticity = 1.0f;
+	/*body.ApplyImpulseLinear(Vec3(0, 2, -10));*/
+	body.m_linearVelocity += Vec3(0, -10, -15);
 	m_bodies.push_back(body);
 
 
@@ -78,6 +81,9 @@ void Scene::ResolveContact(contact_t &contact) {
 	Body* a = contact.bodyA;
 	Body* b = contact.bodyB;
 
+	const Vec3 point_on_a = contact.point_on_A_worldspace;
+	const Vec3 point_on_b = contact.point_on_B_worldspace;
+
 	const float elasticity_a = a->m_elasticity;
 	const float elasticity_b = b->m_elasticity;
 	const float elasticity = elasticity_a * elasticity_b;
@@ -85,15 +91,29 @@ void Scene::ResolveContact(contact_t &contact) {
 	const float invMass_a = a->m_invMass;
 	const float invMass_b = b->m_invMass;
 
-	const Vec3& n = contact.normal;	
-	const Vec3 vab = a->m_linearVelocity - b->m_linearVelocity;
-	const float impulse = -(1.0f + elasticity) * vab.Dot(n) / (invMass_a + invMass_b);
+	const Mat3 invWorldInertia_a = a->GetInverseInertiaTensorWorldSpace();
+	const Mat3 invWorldInertia_b = b->GetInverseInertiaTensorWorldSpace();
+
+	const Vec3& n = contact.normal;
+
+	const Vec3 radius_a = point_on_a - a->GetCenterOfMassWorldSpace();
+	const Vec3 radius_b = point_on_b - b->GetCenterOfMassWorldSpace();
+
+	const Vec3 angular_impulse_a = (invWorldInertia_a * radius_a.Cross(n)).Cross(radius_a);
+	const Vec3 angular_impulse_b = (invWorldInertia_b * radius_b.Cross(n)).Cross(radius_b);
+	const float angular_factor = (angular_impulse_a + angular_impulse_b).Dot(n);
+
+	// Get the world space velocity of motion and rotation
+	const Vec3 vel_a = a->m_linearVelocity + a->m_angularVelocity.Cross(radius_a);
+	const Vec3 vel_b = b->m_linearVelocity + b->m_angularVelocity.Cross(radius_b);
+
+	// Calculate the collision impulse
+	const Vec3 vab = vel_a - vel_b;
+	const float impulse = (1.0f + elasticity) * vab.Dot(n) / (invMass_a + invMass_b + angular_factor);
 	const Vec3 impulse_vector = n * impulse;
 
-	
-	// J2 = -J1
-	a->ApplyImpulseLinear(impulse_vector * 1.0f);
-	b->ApplyImpulseLinear(impulse_vector * -1.0f);
+	a->ApplyImpulse(point_on_a, impulse_vector * -1.0f);
+	b->ApplyImpulse(point_on_b, impulse_vector * 1.0f);
 
 	// Moving by new center of mass
 	
@@ -101,9 +121,9 @@ void Scene::ResolveContact(contact_t &contact) {
 	
 	//const float tA = invMass_a / (invMass_a + invMass_b);
 	//const float tB = invMass_b / (invMass_b + invMass_a);
-	//const Vec3 distance = contact.ptr_on_B_worldspace - contact.ptr_on_A_worldspace;
-	//a->m_position -= distance * tA;
-	//b->m_position += distance * tB;
+	//const Vec3 distance = contact.point_on_B_localspace - contact.point_on_A_worldspace;
+	//a->m_position += distance * tA;
+	//b->m_position -= distance * tB;
 }
 
 bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {
@@ -117,8 +137,8 @@ bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {
 	contact.normal = ab;
 	contact.normal.Normalize();
 
-	contact.ptr_on_A_worldspace = a->m_position + (contact.normal * sphere_a->m_radius);
-	contact.ptr_on_A_worldspace = b->m_position - (contact.normal * sphere_b->m_radius);
+	contact.point_on_A_worldspace = a->m_position + (contact.normal * sphere_a->m_radius);
+	contact.point_on_B_worldspace = b->m_position - (contact.normal * sphere_b->m_radius);
 
 	const float radius_ab = sphere_a->m_radius + sphere_b->m_radius;
 	const float length_sqr = ab.GetLengthSqr();
@@ -148,10 +168,6 @@ void Scene::Update( const float dt_sec ) {
 
 		float mass = 1.0f / body->m_invMass;
 		Vec3 impulseGravity = Vec3(0, 0, gravity) * mass * dt_sec;
-
-		// Do not apply gravity to world body itself
-		if (i == 0)
-			continue;
 
 		body->ApplyImpulseLinear(impulseGravity);
 	}
