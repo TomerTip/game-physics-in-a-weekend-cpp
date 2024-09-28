@@ -60,13 +60,12 @@ void Scene::Initialize() {
 	for (size_t i = 1; i < 20; i++) {
 		float radius = 0.1 * i;
 
-		body.m_position = Vec3(-5, -5 + i + (i * radius), 2 * (i + radius));  // Position the spheres in a circle
+		body.m_position = Vec3(0, 0, 2 * (i * (2 * radius)));  // Position the spheres in a circle
 		body.m_orientation = Quat(0, 0, 0, 1);
 		body.m_shape = new ShapeSphere(radius);
 		body.m_invMass = 1.0f / 0.5f;  // mass of 2 kg
 		body.m_elasticity = 1;
 		body.m_friction = 0.2f;
-		body.m_linearVelocity = Vec3(0, 1, 0);
 
 		m_bodies.push_back(body);
 	}
@@ -139,15 +138,13 @@ void Scene::ResolveContact(contact_t &contact) {
 	b->ApplyImpulse(point_on_b, impulse_friction * 1.0f);
 
 
-	// Moving by new center of mass
-	
-	// TODO: Buggy, understand why
-	
-	//const float tA = invMass_a / (invMass_a + invMass_b);
-	//const float tB = invMass_b / (invMass_b + invMass_a);
-	//const Vec3 distance = contact.point_on_B_localspace - contact.point_on_A_worldspace;
-	//a->m_position += distance * tA;
-	//b->m_position -= distance * tB;
+	// Move collision objects to just before outside of each other
+	const Vec3 distance = point_on_b - point_on_a;
+	const float tA = invMass_a / (invMass_a + invMass_b);
+	const float tB = invMass_b / (invMass_b + invMass_a);
+
+	a->m_position += distance * tA;
+	b->m_position -= distance * tB;
 }
 
 bool Scene::Intersect(Body* a, Body* b, contact_t &contact) {
