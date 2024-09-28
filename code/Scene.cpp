@@ -49,29 +49,27 @@ void Scene::Initialize() {
 	Body body;
 
 	// World Sphere
-	body.m_position = Vec3( 0, 0, -101 );
+	body.m_position = Vec3( 0, 0, -1001 );
 	body.m_orientation = Quat( 0, 0, 0, 1 );
-	body.m_shape = new ShapeSphere( 100.0f );
+	body.m_shape = new ShapeSphere(1000);
 	body.m_invMass = 0; // "Infinite mass" - causes gravity to not have any effect.
 	body.m_elasticity = 1.0f;
-	m_bodies.push_back( body );
-
-	body.m_position = Vec3( 3, 3, 15 );
-	body.m_orientation = Quat( 0, 0, 0, 1 );
-	body.m_shape = new ShapeSphere( 10.0f );
-	body.m_invMass = 1.0f / 2.0f; // mass of 2 kg
-	body.m_elasticity = 1.0f;
+	body.m_friction = 1.0f;
 	m_bodies.push_back( body );
 	
-	body.m_position = Vec3(3, 5, 30);
-	body.m_orientation = Quat(0, 0, 0, 1);
-	body.m_shape = new ShapeSphere(1.0f);
-	//body.m_invMass = 1.0f / 0.5f; // mass of 0.5 kg
-	body.m_invMass = 1 / 100.0f;
-	body.m_elasticity = 1.0f;
-	/*body.ApplyImpulseLinear(Vec3(0, 2, -10));*/
-	body.m_linearVelocity += Vec3(0, -10, -15);
-	m_bodies.push_back(body);
+	for (size_t i = 1; i < 20; i++) {
+		float radius = 0.1 * i;
+
+		body.m_position = Vec3(-5, -5 + i + (i * radius), 2 * (i + radius));  // Position the spheres in a circle
+		body.m_orientation = Quat(0, 0, 0, 1);
+		body.m_shape = new ShapeSphere(radius);
+		body.m_invMass = 1.0f / 0.5f;  // mass of 2 kg
+		body.m_elasticity = 1;
+		body.m_friction = 0.2f;
+		body.m_linearVelocity = Vec3(0, 1, 0);
+
+		m_bodies.push_back(body);
+	}
 
 
 	// TODO: Add code
@@ -114,6 +112,32 @@ void Scene::ResolveContact(contact_t &contact) {
 
 	a->ApplyImpulse(point_on_a, impulse_vector * -1.0f);
 	b->ApplyImpulse(point_on_b, impulse_vector * 1.0f);
+
+	// Calculate impulse caused by friction
+	const float friction_a = a->m_friction;
+	const float friction_b = b->m_friction;
+	const float friction = friction_a * friction_b;
+
+	// Find the normal direction of the velocity in respect with the normal of the collision
+	const Vec3 velocity_normal = n * n.Dot(vab);
+
+	// Find the tangent dirction of the velocity in respect with the normal of the collision
+	const Vec3 velocity_tangent = vab - velocity_normal;
+
+	Vec3 relative_tangent_velocity = velocity_tangent;
+	relative_tangent_velocity.Normalize();
+
+	const Vec3 inertia_a = (invWorldInertia_a * radius_a.Cross(relative_tangent_velocity)).Cross(radius_a);
+	const Vec3 inertia_b = (invWorldInertia_b * radius_b.Cross(relative_tangent_velocity)).Cross(radius_b);
+	const float inv_inertia = (inertia_a + inertia_b).Dot(relative_tangent_velocity);
+
+	// Calculate the tangential impulse for friction
+	const float reduced_mass = 1.0f / (invMass_a + invMass_b + inv_inertia);
+	const Vec3 impulse_friction = velocity_tangent * reduced_mass * friction;
+
+	a->ApplyImpulse(point_on_a, impulse_friction * -1.0f);
+	b->ApplyImpulse(point_on_b, impulse_friction * 1.0f);
+
 
 	// Moving by new center of mass
 	
